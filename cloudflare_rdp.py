@@ -25,6 +25,11 @@ from pathlib import Path
 DEFAULT_HOSTNAME = "win01-rdp.spacenets.org"
 DEFAULT_LOCAL_PORT = 11389
 DEFAULT_RDP_PORT = 3389
+DEFAULT_TUNNEL_NAME = "my-win-01"
+DEFAULT_TUNNEL_ID = "c2a8d9b4-740b-4ca2-844c-f674b355dc23"
+DEFAULT_TUNNEL_TOKEN = "eyJhIjoiZTc1M2ViODFmZTY1YmUzZmY4MWE0MDJiZTE1MmI5YmQiLCJzIjoiRUdxUHRNeG5xdDZacm9zOGVoRmpoRmN0ZDM3RUNWYnhURHZ5Y01YcERscz0iLCJ0IjoiYzJhOGQ5YjQtNzQwYi00Y2EyLTg0NGMtZjY3NGIzNTVkYzIzIn0="
+DEFAULT_CONFIG_FILE = Path.home() / ".cloudflared" / "my-win-01-config.yml"
+DEFAULT_CLOUDFLARED_DIR = Path.home() / ".cloudflared"
 
 
 class CloudflareRDP:
@@ -253,24 +258,95 @@ class CloudflareRDP:
             print(f"   Kurulum: sudo apt install freerdp2-x11")
             print(f"   Manuel bağlantı: xfreerdp /v:localhost:{port}")
     
-    def start_server(self, config_path: str = None, tunnel_name: str = None, background: bool = False):
+    def _create_server_config(self, tunnel_id: str, hostname: str, rdp_port: int = 3389) -> Path:
+        """
+        Sunucu için config dosyası oluştur.
+        
+        Args:
+            tunnel_id: Tunnel UUID
+            hostname: Public hostname (örn: rdp-mywin01.spacenets.org)
+            rdp_port: RDP portu (varsayılan 3389)
+        
+        Returns:
+            Config dosyası yolu
+        """
+        config_path = DEFAULT_CLOUDFLARED_DIR / f"{tunnel_id}-rdp-config.yml"
+        
+        config_content = f"""# Auto-generated RDP tunnel config
+tunnel: {tunnel_id}
+
+ingress:
+  - hostname: {hostname}
+    service: tcp://localhost:{rdp_port}
+  - service: http_status:404
+"""
+        
+        config_path.write_text(config_content, encoding="utf-8")
+        print(f"📝 Config dosyası oluşturuldu: {config_path}")
+        return config_path
+    
+    def _setup_dns_route(self, tunnel_name: str, hostname: str):
+        """
+        Tunnel için DNS route ekle.
+        
+        Args:
+            tunnel_name: Tunnel adı
+            hostname: Public hostname
+        """
+        cmd = [
+            self.cloudflared_path,
+            "tunnel", "route", "dns",
+            tunnel_name, hostname
+        ]
+        
+        print(f"🌐 DNS route ekleniyor: {hostname} -> {tunnel_name}")
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        
+        if result.returncode == 0:
+            print(f"✅ DNS route eklendi: {hostname}")
+        elif "already exists" in result.stderr:
+            print(f"ℹ️  DNS route zaten mevcut: {hostname}")
+        else:
+            print(f"⚠️  DNS route eklenemedi: {result.stderr}")
+    
+    def start_server(self, config_path: str = None, tunnel_name: str = None, tunnel_token: str = None, 
+                     tunnel_id: str = None, hostname: str = None, rdp_port: int = 3389, background: bool = False):
         """
         Server tarafında tunnel başlat.
         
         Args:
             config_path: Tunnel config dosyası yolu
             tunnel_name: Tunnel adı
+            tunnel_token: Tunnel token (credentials dosyası yerine)
+            tunnel_id: Tunnel UUID
+            hostname: Public hostname (ingress için)
+            rdp_port: RDP portu
             background: Harici terminal penceresinde başlat
         """
-        if config_path:
+        # Hostname ve tunnel_id verilmişse, config oluştur ve DNS route ekle
+        if hostname and tunnel_id and not config_path and not tunnel_token:
+            # DNS route ekle
+            if tunnel_name:
+                self._setup_dns_route(tunnel_name, hostname)
+            
+            # Config dosyası oluştur
+            config_path = str(self._create_server_config(tunnel_id, hostname, rdp_port))
+        
+        if tunnel_token:
+            # Token ile çalıştır (credentials dosyası gerekmez)
+            cmd = [
+                self.cloudflared_path,
+                "tunnel", "--no-autoupdate",
+                "run", "--token", tunnel_token
+            ]
+        elif config_path:
             cmd = [
                 self.cloudflared_path,
                 "tunnel",
                 "--config", config_path,
                 "run"
             ]
-            if tunnel_name:
-                cmd.append(tunnel_name)
+            # tunnel_name config'de tanımlı, eklemeye gerek yok
         elif tunnel_name:
             cmd = [
                 self.cloudflared_path,
@@ -373,9 +449,27 @@ def server_mode(args):
             rdp.check_tunnel_status()
             return
         
-        rdp.start_server(args.config, args.tunnel, background=args.background)
+        # Parametreleri belirle
+        tunnel_name = args.tunnel if args.tunnel else DEFAULT_TUNNEL_NAME
+        hostname = args.hostname if args.hostname else DEFAULT_HOSTNAME
+        
+        # Config dosyası ile başlat (çalışan yöntem)
+        config_path = args.config if args.config else str(DEFAULT_CONFIG_FILE)
+        
+        rdp.start_server(
+            config_path=config_path,
+            tunnel_name=tunnel_name,
+            tunnel_token=None,
+            tunnel_id=None,
+            hostname=hostname,
+            rdp_port=args.rdp_port if args.rdp_port else DEFAULT_RDP_PORT,
+            background=args.background
+        )
         
         print("\n✅ Tunnel başlatıldı.")
+        print(f"📌 Karşı taraf bağlantı komutu:")
+        print(f"   cloudflared access tcp --hostname {hostname} --url localhost:{DEFAULT_LOCAL_PORT}")
+        print(f"   mstsc /v:localhost:{DEFAULT_LOCAL_PORT}")
         
         if not args.background:
             print("⏳ Çıkmak için Ctrl+C basın...")
@@ -476,7 +570,30 @@ def main():
     )
     server_parser.add_argument(
         "--tunnel", "-t",
-        help="Tunnel adı"
+        default=DEFAULT_TUNNEL_NAME,
+        help=f"Tunnel adı (varsayılan: {DEFAULT_TUNNEL_NAME})"
+    )
+    server_parser.add_argument(
+        "--tunnel-id", "-I",
+        dest="tunnel_id",
+        default=DEFAULT_TUNNEL_ID,
+        help=f"Tunnel UUID (varsayılan: {DEFAULT_TUNNEL_ID})"
+    )
+    server_parser.add_argument(
+        "--hostname", "-H",
+        default=DEFAULT_HOSTNAME,
+        help=f"Public hostname (varsayılan: {DEFAULT_HOSTNAME})"
+    )
+    server_parser.add_argument(
+        "--rdp-port", "-r",
+        dest="rdp_port",
+        type=int,
+        default=DEFAULT_RDP_PORT,
+        help=f"RDP portu (varsayılan: {DEFAULT_RDP_PORT})"
+    )
+    server_parser.add_argument(
+        "--token", "-T",
+        help="Tunnel token (opsiyonel - verilirse token ile çalışır)"
     )
     server_parser.add_argument(
         "--status", "-s",
