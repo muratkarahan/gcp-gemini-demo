@@ -1,0 +1,125 @@
+# Cloudflare Tunnel RDP Bağlantı Aracı
+
+Windows/Linux için Cloudflare Tunnel üzerinden güvenli RDP bağlantısı sağlayan Python aracı.
+
+## 🚀 Hızlı Başlangıç
+
+```bash
+# Tek komutla bağlan
+python cloudflare_rdp.py client -b -c
+```
+
+Bu komut:
+1. Harici PowerShell penceresinde cloudflared proxy başlatır
+2. mstsc ile RDP bağlantısını otomatik açar
+
+## 📋 Kurulum
+
+### Gereksinimler
+- Python 3.x
+- Cloudflared (`winget install cloudflare.cloudflared`)
+
+### Cloudflared Kurulumu (Windows)
+```powershell
+winget install cloudflare.cloudflared
+```
+
+### Cloudflared Kurulumu (Linux)
+```bash
+# Debian/Ubuntu
+curl -L https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb -o cloudflared.deb
+sudo dpkg -i cloudflared.deb
+
+# Diğer dağıtımlar
+curl -L https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o cloudflared
+chmod +x cloudflared
+sudo mv cloudflared /usr/local/bin/
+```
+
+## 💻 Kullanım
+
+### Client Modu (Uzak Masaüstüne Bağlan)
+
+```bash
+# Varsayılan ayarlarla bağlan (win01-rdp.spacenets.org:11389)
+python cloudflare_rdp.py client -b -c
+
+# Özel hostname ve port ile
+python cloudflare_rdp.py client -H myhost.example.com -p 13389 -b -c
+
+# Sadece proxy başlat (RDP bağlantısını manuel aç)
+python cloudflare_rdp.py client -b
+```
+
+### Parametreler
+
+| Parametre | Kısa | Açıklama |
+|-----------|------|----------|
+| `--hostname` | `-H` | Cloudflare Tunnel hostname (varsayılan: win01-rdp.spacenets.org) |
+| `--port` | `-p` | Yerel port (varsayılan: 11389) |
+| `--background` | `-b` | Harici terminal penceresinde başlat |
+| `--connect` | `-c` | Otomatik RDP bağlantısı başlat |
+| `--username` | `-u` | RDP kullanıcı adı |
+| `--wait` | `-w` | Proxy'yi ön planda tut |
+
+### Hızlı Bağlantı
+
+```bash
+python cloudflare_rdp.py quick
+```
+
+### Server Modu (Tunnel Başlat)
+
+```bash
+# Tunnel başlat
+python cloudflare_rdp.py server -t win01-rdp -b
+
+# Config dosyası ile
+python cloudflare_rdp.py server -C ~/.cloudflared/config.yml -b
+
+# Tunnel durumunu kontrol et
+python cloudflare_rdp.py server -s
+```
+
+## 🔧 Manuel Bağlantı
+
+Eğer script kullanmak istemezseniz:
+
+```powershell
+# 1. Ayrı bir terminalde cloudflared başlat
+cloudflared access tcp --hostname win01-rdp.spacenets.org --url localhost:11389
+
+# 2. Başka bir terminalde RDP bağlan
+mstsc /v:localhost:11389
+```
+
+## 📁 Dosya Yapısı
+
+```
+gcp-gemini-demo/
+├── cloudflare_rdp.py              # Ana Python scripti
+├── README.md                       # Bu dosya
+├── CLOUDFLARE_RDP_CLIENT_SETUP.md # Detaylı kurulum rehberi
+└── CLOUDFLARE_TUNNEL_TROUBLESHOOTING.md # Sorun giderme
+```
+
+## ❓ Sorun Giderme
+
+### "Bad handshake" hatası
+- Sunucu tarafında tunnel çalışmıyor olabilir
+- Cloudflare Dashboard'dan tunnel durumunu kontrol edin
+
+### Port zaten kullanımda
+- Farklı bir port deneyin: `python cloudflare_rdp.py client -p 13389 -b -c`
+
+### Bağlantı zaman aşımı
+- DNS çözünürlüğünü kontrol edin: `nslookup win01-rdp.spacenets.org`
+- İnternet bağlantınızı kontrol edin
+
+## 📄 Lisans
+
+MIT License
+
+## 👤 Yazar
+
+Murat Karahan - [@muratkarahan](https://github.com/muratkarahan)
