@@ -332,9 +332,12 @@ def client_mode(args):
     """Client modu - RDP'ye bağlan."""
     rdp = CloudflareRDP()
     
+    # Background flag'i kontrol et (varsayılan False, harici terminal için True)
+    use_external_terminal = getattr(args, 'background', False)
+    
     try:
         # Access TCP başlat
-        rdp.start_client(args.hostname, args.port, background=True)
+        rdp.start_client(args.hostname, args.port, background=use_external_terminal)
         
         time.sleep(2)  # Proxy'nin başlamasını bekle
         
@@ -458,6 +461,11 @@ def main():
         "--wait", "-w",
         action="store_true",
         help="Proxy'yi ön planda tut"
+    )
+    client_parser.add_argument(
+        "--background", "-b",
+        action="store_true",
+        help="Harici terminal penceresinde başlat"
     )
     
     # Server modu
