@@ -1,6 +1,14 @@
 # Cloudflare Tunnel RDP Bağlantı Aracı
 
-Windows/Linux için Cloudflare Tunnel üzerinden güvenli RDP bağlantısı sağlayan Python aracı.
+Windows/Linux/macOS için Cloudflare Tunnel üzerinden güvenli RDP bağlantısı sağlayan Python aracı.
+
+## 🌐 Desteklenen Platformlar
+
+| Platform | Terminal | RDP Client |
+|----------|----------|------------|
+| Windows | PowerShell | mstsc (built-in) |
+| Linux | gnome-terminal, konsole, xterm | xfreerdp, rdesktop |
+| macOS | Terminal.app | Microsoft Remote Desktop |
 
 ## 🚀 Hızlı Başlangıç
 
@@ -115,6 +123,94 @@ gcp-gemini-demo/
 ### Bağlantı zaman aşımı
 - DNS çözünürlüğünü kontrol edin: `nslookup win01-rdp.spacenets.org`
 - İnternet bağlantınızı kontrol edin
+
+## ⚙️ Ortam Değişkenleri
+
+Script'in varsayılan değerlerini değiştirmek için ortam değişkenleri kullanabilirsiniz:
+
+```bash
+# Linux/macOS
+export CLOUDFLARE_HOSTNAME="myhost.example.com"
+export CLOUDFLARE_PORT="13389"
+
+# Windows PowerShell
+$env:CLOUDFLARE_HOSTNAME = "myhost.example.com"
+$env:CLOUDFLARE_PORT = "13389"
+```
+
+Veya doğrudan script içindeki varsayılan değerleri düzenleyin:
+```python
+DEFAULT_HOSTNAME = "win01-rdp.spacenets.org"
+DEFAULT_LOCAL_PORT = 11389
+```
+
+## 🔐 Güvenlik
+
+### Cloudflare Access Kimlik Doğrulama
+
+Cloudflare Access ile kimlik doğrulama etkinleştirilmişse, ilk bağlantıda tarayıcıda kimlik doğrulama yapmanız gerekebilir:
+
+1. `cloudflared access tcp` komutu çalıştırıldığında tarayıcı açılır
+2. E-posta veya SSO ile giriş yapın
+3. Kimlik doğrulama token'ı otomatik olarak kaydedilir
+4. Sonraki bağlantılarda tekrar giriş gerekmez
+
+### Güvenli Bağlantı Avantajları
+
+- 🔒 Tüm trafik TLS ile şifrelenir
+- 🌍 VPN'e gerek kalmadan güvenli uzak erişim
+- 🚫 Açık port yok - sunucuda firewall açmanıza gerek yok
+- 🔑 Zero Trust güvenlik modeli
+
+## 📊 Kullanım Örnekleri
+
+### Senaryo 1: Evden Ofise Bağlanma
+```bash
+# Ofisteki Windows bilgisayara evden bağlan
+python cloudflare_rdp.py client -H office-pc.company.com -b -c
+```
+
+### Senaryo 2: Farklı Port Kullanma
+```bash
+# 11389 portu meşgulse farklı port kullan
+python cloudflare_rdp.py client -p 23389 -b -c
+```
+
+### Senaryo 3: Belirli Kullanıcı ile Bağlanma
+```bash
+# RDP kullanıcı adını belirt
+python cloudflare_rdp.py client -u administrator -b -c
+```
+
+### Senaryo 4: Proxy'yi Arka Planda Tutma
+```bash
+# Bağlantıyı açık tut, RDP kapatılsa bile
+python cloudflare_rdp.py client -b -w
+```
+
+### Senaryo 5: Sunucu Tarafında Tunnel Başlatma
+```bash
+# Windows sunucuda tunnel çalıştır
+python cloudflare_rdp.py server -t win01-rdp -b
+```
+
+## 🤝 Katkıda Bulunma
+
+Katkılarınızı bekliyoruz! 
+
+1. Fork edin
+2. Feature branch oluşturun (`git checkout -b feature/amazing-feature`)
+3. Değişikliklerinizi commit edin (`git commit -m 'Add amazing feature'`)
+4. Branch'i push edin (`git push origin feature/amazing-feature`)
+5. Pull Request açın
+
+### Geliştirme Ortamı
+
+```bash
+git clone https://github.com/muratkarahan/gcp-gemini-demo.git
+cd gcp-gemini-demo
+python cloudflare_rdp.py --help
+```
 
 ## 📄 Lisans
 
