@@ -89,6 +89,79 @@ python cloudflare_rdp.py server -C ~/.cloudflared/config.yml -b
 python cloudflare_rdp.py server -s
 ```
 
+## 🖥️ Sunucu Tarafı Kurulumu (RDP Sunan Makine)
+
+### 1. Tunnel Oluşturma ve Yapılandırma
+
+```powershell
+# Cloudflare'a login ol (tarayıcıda yetkilendirme gerekir)
+cloudflared tunnel login
+
+# Yeni tunnel oluştur
+cloudflared tunnel create my-win-01
+
+# DNS route ekle
+cloudflared tunnel route dns my-win-01 win01-rdp.spacenets.org
+```
+
+### 2. Credentials Dosyası
+
+Tunnel oluşturulduğunda `~/.cloudflared/` dizininde `<TUNNEL_ID>.json` dosyası oluşur.
+Token'dan credentials dosyası oluşturmak için:
+
+```powershell
+# Token al
+cloudflared tunnel token my-win-01
+
+# Token'ı decode et ve credentials.json oluştur
+# Token içeriği: {"a":"ACCOUNT_TAG","s":"TUNNEL_SECRET","t":"TUNNEL_ID"}
+```
+
+### 3. Config Dosyası Oluşturma
+
+`~/.cloudflared/my-win-01-config.yml` dosyası:
+
+```yaml
+tunnel: <TUNNEL_ID>
+credentials-file: C:\Users\<USER>\.cloudflared\<TUNNEL_ID>.json
+
+ingress:
+  - hostname: win01-rdp.spacenets.org
+    service: tcp://localhost:3389
+  - service: http_status:404
+```
+
+### 4. Sunucuyu Başlatma
+
+```powershell
+# PowerShell ile (önerilen)
+cloudflared tunnel --config C:\Users\murat\.cloudflared\my-win-01-config.yml run
+
+# Veya Python ile
+python cloudflare_rdp.py server --background
+```
+
+### 5. Windows Servisi Olarak Kurma (Opsiyonel)
+
+```powershell
+# Admin PowerShell'de
+cloudflared service install
+```
+
+### Sunucu Yapılandırma Özeti
+
+| Dosya | Konum | Açıklama |
+|-------|-------|----------|
+| Config | `~/.cloudflared/my-win-01-config.yml` | Tunnel ve ingress yapılandırması |
+| Credentials | `~/.cloudflared/<TUNNEL_ID>.json` | Kimlik doğrulama bilgileri |
+| Cert | `~/.cloudflared/cert.pem` | Cloudflare sertifikası |
+
+### ⚠️ Önemli Notlar
+
+- **Token vs Config**: Token ile başlatıldığında ingress kuralları Cloudflare Dashboard'dan alınır. Lokal config ile başlatıldığında ise config dosyasındaki ingress kuralları kullanılır.
+- **RDP Servisi**: Windows'ta Remote Desktop Services (TermService) çalışıyor olmalı.
+- **Firewall**: Cloudflare Tunnel kullanıldığında dış dünyaya port açmaya gerek yok.
+
 ## 🔧 Manuel Bağlantı
 
 Eğer script kullanmak istemezseniz:
